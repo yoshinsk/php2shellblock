@@ -1,10 +1,10 @@
 # 導入とロールバック
 
-この手順は、PHP 5.4.45を更新できない環境向けの独自バックポートを導入するものです。PHPプロジェクトやRemiの公式修正版ではありません。実攻撃の再現と、両CVEに対する完全な有効性は未検証です。
+この手順は、PHP 5.4.45を更新できない環境向けの独自バックポートを導入するものです。PHPプロジェクトやRemiの公式修正版ではありません。[両CVEの確認済み経路](security-validation.md)は修正前後で比較しました。任意コード実行と全攻撃経路への有効性は未検証です。
 
 ## 対応環境
 
-`v0.1.1`の対応範囲は、次の構成に限定しています。
+`v0.1.2`の対応範囲は、次の構成に限定しています。
 
 |項目|条件|
 |---|---|
@@ -26,7 +26,7 @@ EL8/EL9、AlmaLinux、Rocky Linux、Ubuntu、PHP-FPM、CGI、ZTS、Apache worker
 [リリース一覧](https://github.com/yoshinsk/php2shellblock/releases)から取得できます。初版の固定URLを使う場合は、対象サーバーで次を実行してください。
 
 ```sh
-release_url='https://github.com/yoshinsk/php2shellblock/releases/download/v0.1.1'
+release_url='https://github.com/yoshinsk/php2shellblock/releases/download/v0.1.2'
 curl --fail --location --output php2shellblock-install.sh "$release_url/php2shellblock-install.sh"
 curl --fail --location --output php2shellblock-install.sh.sha256 "$release_url/php2shellblock-install.sh.sha256"
 sha256sum --check php2shellblock-install.sh.sha256
@@ -78,9 +78,13 @@ sudo bash php2shellblock-install.sh --apply \
 
 同じ候補モジュールがすでに全Apacheプロセスで稼働していれば、再読込みをせず`already_applied_no_changes`で終了します。この場合は新しい退避を作成しません。別の方法で導入した環境では、その導入方法に対応する復旧手順を使用してください。
 
+### 旧版からの更新
+
+`v0.1.1`のモジュールが稼働中でも、`v0.1.2`の`--check`と`--apply`を実行できます。新しい退避には更新前の設定と`v0.1.1`のモジュールが保存されます。更新後に`--rollback latest`を実行すると、更新前の`v0.1.1`へ戻ります。旧版で作成した退避も削除しません。
+
 ### 変更するもの
 
-`/usr/local/lib64/php2shellblock/php54-2b343438ad94/libphp5.so`へモジュールを別配置し、`10-php.conf`のNTSモジュール参照と既存`include_path`の維持設定を変更します。`/var/lib/php2shellblock/`にroot専用の退避・適用記録を保存します。
+`/usr/local/lib64/php2shellblock/php54-f83e471ca70d/libphp5.so`へモジュールを別配置し、`10-php.conf`のNTSモジュール参照を変更します。元のPHP検索パスを維持し、旧版からの更新時は`include_path`の指定を重複させません。`/var/lib/php2shellblock/`にroot専用の退避・適用記録を保存します。
 
 元のPHP RPM、元の`libphp5.so`、`/usr/bin/php`、PHP-FPM、アプリのコード、DBデータ、Apache以外のサービス設定は変更しません。対象はWeb用mod_phpです。CLIや別SAPIへ対策を導入するものではありません。
 

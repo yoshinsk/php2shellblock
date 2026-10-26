@@ -30,7 +30,8 @@ except ImportError:
     import http.client as http
     from urllib.parse import urlsplit
 
-CANDIDATE_SHA = "2b343438ad940ce1d5429f27e7b51ad2f16078687a3c3caa62b67502f4a2c315"
+CANDIDATE_SHA = "f83e471ca70d691b06f2f8957204d6a8e37821a7bb31b9e864e06d8497abae23"
+PREVIOUS_SHA = "2b343438ad940ce1d5429f27e7b51ad2f16078687a3c3caa62b67502f4a2c315"
 ORIGINAL_SHA = "eeefbd609a2db685b419fb222c4863c598398b57ec08d7246ac5d49f2ed07641"
 
 
@@ -272,7 +273,9 @@ php_admin_value session.save_path "ROOT/sessions"
             require(before["extensions"] == after["extensions"], "PHP extension list changed")
             require(before["functions"] == after["functions"], "Internal PHP function list changed")
             require(all(after["ini"].get(key) == value for key, value in before["ini"].items()), "Existing PHP INI values changed")
-            require(set(after["ini"]) - set(before["ini"]) == set(["max_multipart_body_parts"]), "Unexpected new INI entries")
+            # v0.1.1 からの更新では、このINI項目はすでに存在する。
+            expected_ini = set(["max_multipart_body_parts"]) if digest(self.original) == ORIGINAL_SHA else set()
+            require(set(after["ini"]) - set(before["ini"]) == expected_ini, "Unexpected new INI entries")
             self.select(self.original)
             os.kill(self.process.pid, signal.SIGUSR1)
             wait_maps(self.process.pid, self.original, 15)
@@ -328,7 +331,7 @@ class Installer(object):
         require(services["httpd"] > 0, "Apache must already be running")
         require(mapped(services["httpd"]) == [original], "Configured and active PHP modules differ")
         current = digest(original)
-        require(current in (ORIGINAL_SHA, CANDIDATE_SHA), "Unsupported current PHP module; nothing changed")
+        require(current in (ORIGINAL_SHA, PREVIOUS_SHA, CANDIDATE_SHA), "Unsupported current PHP module; nothing changed")
         wait_maps(services["httpd"], original, 15)
         self.system.syntax()
         return manifest, candidate, config, directive, original, services, current
@@ -376,7 +379,7 @@ class Installer(object):
             self.rollback(directory)
             raise
         return {"result": "applied", "backup": directory, "module_sha256": CANDIDATE_SHA,
-                "compatibility": compatibility, "http": baseline, "attack_reproduction": "not_performed"}
+                "compatibility": compatibility, "http": baseline, "attack_reproduction": "not_performed_during_install"}
 
     def prepare(self, manifest, config, directive, original, services, baseline, urls, host_header, compatibility):
         """元RPMは上書きせず、復旧に必要なファイルをネットワーク不要の形で先に保存する。"""
@@ -400,13 +403,15 @@ class Installer(object):
             os.chmod(self.system.installed, 0o755)
         include_path = compatibility["include_path"]
         new = config.replace(directive, self.system.installed, 1)
-        new += '\n# php2shellblock: preserve the existing PHP include_path.\nphp_value include_path "' + include_path + '"\n'
+        # 旧版の設定には同じ指定があるため、更新時に重複させない。
+        if not re.search(r'(?m)^[ \t]*php_value[ \t]+include_path[ \t]+', new):
+            new += '\n# php2shellblock: preserve the existing PHP include_path.\nphp_value include_path "' + include_path + '"\n'
         write(directory + "/new.conf", new)
         state = {"version": manifest["version"], "result": "prepared", "config": self.system.config,
                  "original_module": original, "original_module_sha256": digest(original),
                  "original_config_sha256": digest(directory + "/original.conf"), "new_config_sha256": digest(directory + "/new.conf"),
                  "installed_module": self.system.installed, "services_before": services, "http_before": baseline,
-                 "health_urls": urls, "host_header": host_header, "python_executable": interpreter, "attack_reproduction": "not_performed"}
+                 "health_urls": urls, "host_header": host_header, "python_executable": interpreter, "attack_reproduction": "not_performed_during_install"}
         save_json(directory + "/state.json", state)
         write(directory + "/rollback.sh", "#!/bin/sh\n# Network-independent rollback using the selected Python interpreter.\nset -eu\nexec " + shell_quote(interpreter) + " -E " + shell_quote(directory + "/rollback.py") + " --rollback " + shell_quote(directory) + "\n")
         os.chmod(directory + "/rollback.sh", 0o700)
@@ -437,7 +442,7 @@ class Installer(object):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="PHP 5.4.45/EL7/Remi/mod_php installer; real attack resistance is unverified")
+    parser = argparse.ArgumentParser(description="PHP 5.4.45/EL7/Remi/mod_php installer; tested crash path, RCE unverified")
     modes = parser.add_mutually_exclusive_group(required=True)
     modes.add_argument("--check", action="store_true")
     modes.add_argument("--apply", action="store_true")

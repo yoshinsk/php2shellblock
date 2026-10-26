@@ -7,7 +7,7 @@
 CentOS 7 x86_64、Remi PHP 5.4.45 NTS、Apache 2.4.6 preforkを対象にしています。配布モジュールのSHA-256は次の値です。
 
 ```text
-2b343438ad940ce1d5429f27e7b51ad2f16078687a3c3caa62b67502f4a2c315
+f83e471ca70d691b06f2f8957204d6a8e37821a7bb31b9e864e06d8497abae23
 ```
 
 元SRPMと変更後ソースのハッシュは[`release/php54-source-manifest.json`](../release/php54-source-manifest.json)に記録しています。ビルド方法は[ビルド手順](build.md)を参照してください。
@@ -27,15 +27,16 @@ CentOS 7 x86_64、Remi PHP 5.4.45 NTS、Apache 2.4.6 preforkを対象にして�
 |multipart件数|上限まで受理し、超過分を受理しないことを確認|
 |ワーカー|Keep-Aliveでの再利用、OOM対象プロセスの終了、後続処理を確認|
 |異常後の応答|fatal・parse error・shutdown warningの後に正常応答を確認|
+|両CVEの確認済み経路|元版のOOM後に同一ワーカーでSegmentation faultを再現。修正版では対象ワーカーが終了し、次要求は正常応答。[比較結果](security-validation.md)を参照|
 |導入と復旧|隔離Apacheでgraceful切替、再実行、手動復旧、画面不一致時の自動復旧を確認|
 
 各機能試験は一時ディレクトリと専用プロセスを使います。自動導入で実行する試験の範囲は[導入手順](install.md#自動検査の範囲)を参照してください。
 
 ## 未検証の範囲
 
-実際のRCE攻撃コードによる比較検証、ASan・Valgrindによる網羅的な検査、第三者拡張の内部状態、カスタムallocator、ZTS、PHP 5.4.45以外は未検証です。
+任意コード実行に至る攻撃コードによる比較検証、ASan・Valgrindによる網羅的な検査、第三者拡張の内部状態、カスタムallocator、ZTS、PHP 5.4.45以外は未検証です。
 
-単一ワーカーのmod_php構成では、OOM後の応答を待機時間内に確認できなかったため、動作確認済みとは扱いません。機能試験では複数ワーカーを使用しています。
+単一ワーカーの専用mod_php構成でも、OOM時のワーカー終了と、補充されたワーカーによる後続要求の正常応答を確認しました。これは[記録した入力列](security-validation.md)に限る結果です。
 
 アプリ固有の認証、DBデータの更新、設定保存、業務ファイル保存、外部連携、負荷試験も自動確認の対象外です。CGIに関する試験は合成fixtureだけを対象とし、CGIが自動導入の対応方式であることを意味しません。
 

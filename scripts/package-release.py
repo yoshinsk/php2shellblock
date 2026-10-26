@@ -12,7 +12,7 @@ import subprocess
 import tarfile
 
 ROOT = Path(__file__).resolve().parent.parent
-MODULE_SHA = "2b343438ad940ce1d5429f27e7b51ad2f16078687a3c3caa62b67502f4a2c315"
+MODULE_SHA = "f83e471ca70d691b06f2f8957204d6a8e37821a7bb31b9e864e06d8497abae23"
 LIBRARIES = {
     "/lib64/libc.so.6": "18c9eb148ec8bf8f6018d3021e7395bd9de847f280dde5d65e73522195fa35f9",
     "/lib64/libssl.so.10": "cd1d62209c3e14cd9809d76cc446fdf54c2a272f4e9cba24278a38e72254931b",
@@ -81,7 +81,8 @@ def main():
         payload["php54-modified-sources/" + name] = content
     payload["php54-source-manifest.json"] = (json.dumps(source_manifest, indent=2, sort_keys=True) + "\n").encode()
     manifest = {"version": args.version, "revision": revision, "module_sha256": MODULE_SHA,
-                "libraries": LIBRARIES, "attack_reproduction": "not_performed",
+                "libraries": LIBRARIES, "security_validation": "documented_oom_stale_session_crash_path",
+                "rce_validation": "not_performed",
                 "files": {path: sha(content) for path, content in payload.items()}}
     payload["manifest.json"] = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode()
     packed = archive({"payload/" + path: content for path, content in payload.items()})

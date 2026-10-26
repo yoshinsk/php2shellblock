@@ -4,6 +4,8 @@
 
 PHP本体向けパッチはPHP 5.4.45と、PHPプロジェクトのPHP 7.4向け最小バックポートをもとにした派生変更です。元のPHPおよびZendの著作権表示・ライセンス条件を維持してください。
 
+`php-5.4.45-remi-overflow-prep.patch`は、RemiのソースRPMに含まれる文字列長検査を、upstreamソースで再現するための準備パッチです。公開用モジュールの生成にはRemiのソースRPMを使用し、この準備パッチを重ねて適用しません。
+
 - [PHP License 3.01](licenses/PHP-3.01.txt)
 - [Zend Engine License 2.00](licenses/Zend-2.00.txt)
 - [移植元の公式変更](https://github.com/php/php-src/commit/712e60f9edfd03f0960fc4fc3c2c375f42b90aa2)

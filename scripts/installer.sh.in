@@ -12,7 +12,7 @@ usage() {
 php2shellblock installer @VERSION@
 
 Supported: CentOS 7 x86_64 / Remi PHP 5.4.45-19 / Apache 2.4.6 prefork.
-This is an independent backport. Real attack resistance is NOT verified.
+This is an independent backport. The documented crash path was tested; RCE was not.
 
 Usage:
   sudo bash php2shellblock-install.sh --check --health-url http://127.0.0.1/login.php

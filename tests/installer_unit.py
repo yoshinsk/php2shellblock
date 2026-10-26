@@ -128,6 +128,16 @@ class TransactionTests(unittest.TestCase):
             self.assertEqual(runtime.read(self.system.config), self.config)
             self.assertEqual(self.system.reload_count, 2)
 
+    def test_upgrade_preserves_existing_include_path_and_rollback(self):
+        # 旧版の設定を引き継ぐ更新では、include_pathを重複させず元設定へ戻せる。
+        self.config += 'php_value include_path ".:/usr/share/php"\n'
+        runtime.write(self.system.config, self.config)
+        with self.environment():
+            result = self.instance.install(self.urls)
+            self.assertEqual(runtime.read(self.system.config).count("php_value include_path"), 1)
+            self.assertEqual(self.instance.rollback(result["backup"])["result"], "rolled_back")
+        self.assertEqual(runtime.read(self.system.config), self.config)
+
     def test_rollback_uses_selected_interpreter(self):
         with self.environment():
             result = self.instance.install(self.urls)

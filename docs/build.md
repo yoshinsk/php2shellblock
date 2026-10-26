@@ -39,10 +39,10 @@ HTTP試験はrootで専用Apacheを起動し、子プロセスを`apache`ユー�
 
 ```sh
 python3 scripts/package-release.py \
-  --version v0.1.1 \
+  --version v0.1.2 \
   --module /絶対パス/libphp5.so \
   --php-source /絶対パス/php-5.4.45 \
-  --output /新しい絶対パス/release-v0.1.1
+  --output /新しい絶対パス/release-v0.1.2
 ```
 
 出力先に既存のディレクトリを指定すると停止します。出力は導入用シェル、シェル用チェックサム、payloadアーカイブ、`SHA256SUMS`です。同じ入力から同じ内容を生成するため、アーカイブの並び順・時刻・所有者情報を固定しています。
@@ -51,6 +51,6 @@ PHPパッチと変更後ソースの定義は[`release/php54-source-manifest.jso
 
 ## 実験用コード
 
-`scripts/build-php54.sh`はupstreamソースを対象とする別構成のビルド用です。公開インストーラー用のRemi構成とは区別してください。
+`scripts/build-php54.sh`はupstreamソースを対象とする別構成のビルド用です。Remiが追加した二つの文字列長検査を準備パッチで合わせてから、本体パッチを適用します。公開インストーラー用のRemi構成とは区別してください。
 
 `php2shell_block.c`と`config.m4`は、致命的エラーを検知した際に終了する実験用拡張です。公開インストーラーはこの拡張を使用しません。PHPの入力解析や内部状態の問題を網羅して修正するものではないため、本体向けパッチの代替として導入しないでください。

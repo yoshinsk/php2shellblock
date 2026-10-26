@@ -10,6 +10,8 @@ echo "4e0d28b1554c95cfaea6fa2b64aac85433f158ce72bb571bcd5574f98f4c6582  $archive
 mkdir -p "$work"
 tar -xjf "$archive" -C "$work"
 cd "$work/php-5.4.45"
+# Remiソースで追加される二つの文字列長検査を先に合わせ、同じ修正パッチを適用する。
+patch --fuzz=0 -p1 < "$repo/patches/php-5.4.45-remi-overflow-prep.patch"
 patch --fuzz=0 -p1 < "$repo/patches/php-5.4.45-php2shell.patch"
 # 検証用の最小構成。make installは呼ばず、Apache設定・RPMを変更しない。
 nice -n 15 ionice -c3 ./configure --prefix="$work/prefix" --disable-all \

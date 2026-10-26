@@ -5,16 +5,16 @@ PHP 5.4.45向けの独自バックポートと、Apache mod_php用の導入ツ�
 - CVE-2026-109618：メモリ不足時の中断と後処理によるメモリ破損。
 - CVE-2026-109619：リクエスト終了後に残った内部状態が、後続リクエストで使われる問題。
 
-PHPプロジェクトやRemiの公式修正版ではありません。実攻撃の再現と、両CVEに対する完全な有効性は未検証です。機能試験や正常な画面応答をもって、安全性を保証するものではありません。
+PHPプロジェクトやRemiの公式修正版ではありません。**両CVEの確認済み経路を修正前後で比較検証しました。** 元版でOOM後のSegmentation faultを再現し、修正版ではワーカーの終了と次要求の正常応答を確認しています。[試験条件と結果](docs/security-validation.md)を参照してください。任意コード実行と全攻撃経路への有効性は未検証です。
 
 ## ダウンロード
 
-[導入シェル](https://github.com/yoshinsk/php2shellblock/releases/download/v0.1.1/php2shellblock-install.sh) · [チェックサム](https://github.com/yoshinsk/php2shellblock/releases/download/v0.1.1/php2shellblock-install.sh.sha256) · [リリース一覧](https://github.com/yoshinsk/php2shellblock/releases)
+[導入シェル](https://github.com/yoshinsk/php2shellblock/releases/download/v0.1.2/php2shellblock-install.sh) · [チェックサム](https://github.com/yoshinsk/php2shellblock/releases/download/v0.1.2/php2shellblock-install.sh.sha256) · [リリース一覧](https://github.com/yoshinsk/php2shellblock/releases)
 
 導入シェルは検証対象のPHPモジュールを同梱した自己展開形式です。モジュールを追加取得したり、対象サーバーでビルドしたりする必要はありません。
 
 ```sh
-release_url='https://github.com/yoshinsk/php2shellblock/releases/download/v0.1.1'
+release_url='https://github.com/yoshinsk/php2shellblock/releases/download/v0.1.2'
 curl --fail --location --output php2shellblock-install.sh "$release_url/php2shellblock-install.sh"
 curl --fail --location --output php2shellblock-install.sh.sha256 "$release_url/php2shellblock-install.sh.sha256"
 sha256sum --check php2shellblock-install.sh.sha256
@@ -38,6 +38,8 @@ sha256sum --check php2shellblock-install.sh.sha256
 必要なコマンドや空き容量は[導入手順の対応環境](docs/install.md#対応環境)を参照してください。
 
 Pythonは2.7または3.6以上を使用します。`python`、`python2.7`、`python3`の順に利用可能なものを選びます。Python 2.6のみの環境やCentOS 6は対応外です。[実行時のエラー](docs/install.md#実行時のエラー)も参照してください。
+
+`v0.1.1`を適用済みの環境は、`v0.1.2`の導入シェルで更新できます。更新前の設定とモジュールを退避し、ロールバック時は`v0.1.1`へ戻します。
 
 ## 検査と適用
 
@@ -86,6 +88,7 @@ OOM時にはワーカーを即時終了するため、shutdown関数、デスト
 - [ビルドと配布物の生成](docs/build.md)
 - [PHP本体向けパッチの対応範囲](docs/backport-coverage.md)
 - [検証項目と未検証の範囲](docs/validation.md)
+- [両CVEの修正前後比較](docs/security-validation.md)
 - [インストーラーの検証方法](docs/installer-validation.md)
 
 ## 出典

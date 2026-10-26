@@ -39,10 +39,10 @@ HTTP試験はrootで専用Apacheを起動し、子プロセスを`apache`ユー�
 
 ```sh
 python3 scripts/package-release.py \
-  --version v0.1.0 \
+  --version v0.1.1 \
   --module /絶対パス/libphp5.so \
   --php-source /絶対パス/php-5.4.45 \
-  --output /新しい絶対パス/release-v0.1.0
+  --output /新しい絶対パス/release-v0.1.1
 ```
 
 出力先に既存のディレクトリを指定すると停止します。出力は導入用シェル、シェル用チェックサム、payloadアーカイブ、`SHA256SUMS`です。同じ入力から同じ内容を生成するため、アーカイブの並び順・時刻・所有者情報を固定しています。

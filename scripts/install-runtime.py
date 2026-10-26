@@ -20,6 +20,10 @@ import sys
 import tempfile
 import time
 try:
+    from shlex import quote as shell_quote
+except ImportError:
+    from pipes import quote as shell_quote
+try:
     import httplib as http
     from urlparse import urlsplit
 except ImportError:
@@ -100,7 +104,7 @@ def wait_maps(parent, module, seconds=120):
 
 def parse_url(value):
     parsed = urlsplit(value)
-    require(parsed.scheme in ("http", "https") and parsed.hostname == "127.0.0.1", "Use an http(s)://127.0.0.1/... health URL")
+    require(parsed.scheme in ("http", "https") and parsed.hostname == "127.0.0.1", "Use an http(s)://127.0.0.1/... health URL; use --host-header for a local virtual host")
     require(not parsed.username and not parsed.password and not parsed.query and not parsed.fragment, "Health URL credentials, query and fragment are unsupported")
     require(not any(char in value for char in "\r\n"), "Invalid health URL")
     return parsed
@@ -376,6 +380,8 @@ class Installer(object):
 
     def prepare(self, manifest, config, directive, original, services, baseline, urls, host_header, compatibility):
         """元RPMは上書きせず、復旧に必要なファイルをネットワーク不要の形で先に保存する。"""
+        interpreter = os.path.realpath(sys.executable)
+        require(os.path.isfile(interpreter) and os.access(interpreter, os.X_OK), "Selected Python interpreter is not executable")
         if not os.path.exists(self.system.base):
             os.mkdir(self.system.base, 0o700)
         require(not os.path.islink(self.system.base) and os.stat(self.system.base).st_uid == 0 and os.stat(self.system.base).st_mode & 0o077 == 0, "State directory must be root-owned and private")
@@ -400,9 +406,9 @@ class Installer(object):
                  "original_module": original, "original_module_sha256": digest(original),
                  "original_config_sha256": digest(directory + "/original.conf"), "new_config_sha256": digest(directory + "/new.conf"),
                  "installed_module": self.system.installed, "services_before": services, "http_before": baseline,
-                 "health_urls": urls, "host_header": host_header, "attack_reproduction": "not_performed"}
+                 "health_urls": urls, "host_header": host_header, "python_executable": interpreter, "attack_reproduction": "not_performed"}
         save_json(directory + "/state.json", state)
-        write(directory + "/rollback.sh", "#!/bin/sh\n# Network-independent rollback for this transaction only.\nset -eu\nexec /usr/bin/python -E '" + directory + "/rollback.py' --rollback '" + directory + "'\n")
+        write(directory + "/rollback.sh", "#!/bin/sh\n# Network-independent rollback using the selected Python interpreter.\nset -eu\nexec " + shell_quote(interpreter) + " -E " + shell_quote(directory + "/rollback.py") + " --rollback " + shell_quote(directory) + "\n")
         os.chmod(directory + "/rollback.sh", 0o700)
         save_json(self.system.base + "/latest.json", {"backup": directory})
         return directory

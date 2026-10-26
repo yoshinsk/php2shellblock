@@ -12,7 +12,8 @@ CentOS 7、Python 2.7、bash、root権限、umask 077で実行しています。
 
 |項目|確認内容|
 |---|---|
-|単体試験9件|URL制限、対象設定、検査モード、適用、復旧、競合・退避改変の拒否|
+|導入エンジンの単体試験10件|URL制限、対象設定、検査モード、適用、復旧、競合・退避改変の拒否、復旧用Pythonの維持|
+|起動・展開の回帰試験12件|対応OS・CPUの判定、context managerなしのTarFile、ファイルの閉鎖、危険なアーカイブの拒否、利用可能なPythonの選択|
 |シェル|`bash -n`による構文検査、Python 2.7・umask 077での自己展開|
 |ファイルの整合性|外部チェックサム、埋込みアーカイブ、manifest内の各ファイルのハッシュ照合|
 |破損ファイル|埋込みデータを変更したシェルを、導入処理の起動前に拒否|
@@ -23,7 +24,9 @@ CentOS 7、Python 2.7、bash、root権限、umask 077で実行しています。
 |PHPの互換性|拡張、内部関数、既存INI値が一致し、新規INIが想定した項目だけであること|
 |生成の再現性|同じ入力から生成した配布ファイルが一致すること|
 
-これらの項目は検証対象の構成で成功しています。実行用スクリプトは[`tests/installer_unit.py`](../tests/installer_unit.py)と[`tests/installer_integration.py`](../tests/installer_integration.py)です。統合試験には展開済みpayloadを指定します。
+実行用スクリプトは[`tests/installer_unit.py`](../tests/installer_unit.py)、[`tests/installer_integration.py`](../tests/installer_integration.py)、[`tests/installer_bootstrap.py`](../tests/installer_bootstrap.py)です。統合試験には展開済みpayloadを指定します。
+
+展開の回帰試験ではPython 3上で、`__enter__`・`__exit__`を持たないTarFileと読取りハンドルを再現します。Pythonの選択処理はPOSIX bash上で試験します。これはPython 2.6で導入エンジン全体が動作するという意味ではありません。
 
 ## 確認範囲
 

@@ -9,12 +9,12 @@ PHPプロジェクトやRemiの公式修正版ではありません。実攻撃�
 
 ## ダウンロード
 
-[導入シェル](https://github.com/yoshinsk/php2shellblock/releases/download/v0.1.0/php2shellblock-install.sh) · [チェックサム](https://github.com/yoshinsk/php2shellblock/releases/download/v0.1.0/php2shellblock-install.sh.sha256) · [リリース一覧](https://github.com/yoshinsk/php2shellblock/releases)
+[導入シェル](https://github.com/yoshinsk/php2shellblock/releases/download/v0.1.1/php2shellblock-install.sh) · [チェックサム](https://github.com/yoshinsk/php2shellblock/releases/download/v0.1.1/php2shellblock-install.sh.sha256) · [リリース一覧](https://github.com/yoshinsk/php2shellblock/releases)
 
 導入シェルは検証対象のPHPモジュールを同梱した自己展開形式です。モジュールを追加取得したり、対象サーバーでビルドしたりする必要はありません。
 
 ```sh
-release_url='https://github.com/yoshinsk/php2shellblock/releases/download/v0.1.0'
+release_url='https://github.com/yoshinsk/php2shellblock/releases/download/v0.1.1'
 curl --fail --location --output php2shellblock-install.sh "$release_url/php2shellblock-install.sh"
 curl --fail --location --output php2shellblock-install.sh.sha256 "$release_url/php2shellblock-install.sh.sha256"
 sha256sum --check php2shellblock-install.sh.sha256
@@ -36,6 +36,8 @@ sha256sum --check php2shellblock-install.sh.sha256
 元のPHPモジュールと主要ライブラリのSHA-256も照合します。版番号が同じでも、ビルドや依存関係が異なる環境には適用しません。PHP-FPM、CGI、ZTS、Apache worker/event、別OSは自動適用の対象外です。強制適用オプションはありません。
 
 必要なコマンドや空き容量は[導入手順の対応環境](docs/install.md#対応環境)を参照してください。
+
+Pythonは2.7または3.6以上を使用します。`python`、`python2.7`、`python3`の順に利用可能なものを選びます。Python 2.6のみの環境やCentOS 6は対応外です。[実行時のエラー](docs/install.md#実行時のエラー)も参照してください。
 
 ## 検査と適用
 

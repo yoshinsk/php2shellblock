@@ -4,7 +4,7 @@
 
 ## 対応環境
 
-`v0.1.0`の対応範囲は、次の構成に限定しています。
+`v0.1.1`の対応範囲は、次の構成に限定しています。
 
 |項目|条件|
 |---|---|
@@ -16,7 +16,7 @@
 |主要ライブラリ|glibc・OpenSSL・libxml2・PCREが同梱manifestのハッシュと一致|
 |SELinux|DisabledまたはPermissive|
 |実行権限|rootまたはsudo|
-|必要なコマンド|bash、Python 2.7以降、base64、sha256sum、awk、mktemp、nice、httpd、rpm、systemctl、ldd、getenforce|
+|必要なコマンド|bash、Python 2.7または3.6以上、uname、base64、sha256sum、awk、mktemp、nice、httpd、rpm、systemctl、ldd、getenforce|
 |空き容量|`/opt`・`/var`・`/usr/local`に各100MiB以上|
 
 EL8/EL9、AlmaLinux、Rocky Linux、Ubuntu、PHP-FPM、CGI、ZTS、Apache worker/event、別リリースのPHP RPMは自動適用の対象外です。同じ版番号でもベンダーやビルド条件が異なる場合は停止します。対象外へ強制適用するオプションはありません。
@@ -26,7 +26,7 @@ EL8/EL9、AlmaLinux、Rocky Linux、Ubuntu、PHP-FPM、CGI、ZTS、Apache worker
 [リリース一覧](https://github.com/yoshinsk/php2shellblock/releases)から取得できます。初版の固定URLを使う場合は、対象サーバーで次を実行してください。
 
 ```sh
-release_url='https://github.com/yoshinsk/php2shellblock/releases/download/v0.1.0'
+release_url='https://github.com/yoshinsk/php2shellblock/releases/download/v0.1.1'
 curl --fail --location --output php2shellblock-install.sh "$release_url/php2shellblock-install.sh"
 curl --fail --location --output php2shellblock-install.sh.sha256 "$release_url/php2shellblock-install.sh.sha256"
 sha256sum --check php2shellblock-install.sh.sha256
@@ -41,6 +41,8 @@ sha256sum --check php2shellblock-install.sh.sha256
 既存アプリのPHP表示ページを、`--health-url`で指定します。保存・削除・ログアウトなどを行わないページを選んでください。認証不要のログインフォームなど、連続して取得しても本文が変わらないページが適しています。
 
 URLの接続先は`127.0.0.1`だけを許可しています。200を返す2MiB以下のページが必要で、リダイレクトは追跡しません。時刻や乱数を本文に含む画面、ログイン後に移動する302応答の画面、メンテナンス中の503応答では検査が停止します。公開用の診断ページは自動作成しません。
+
+同じサーバーのLAN側IPであっても、URLの接続先には指定しません。VirtualHostの選択が必要な場合は、接続先を`127.0.0.1`とし、`--host-header`を併用してください。
 
 以下の`/login.php`は例です。実在するPHP表示ページのパスに置き換えてください。
 
@@ -118,6 +120,36 @@ PHPのOOM時にワーカーを終了するため、該当リクエストのshutd
 
 生成元は[`scripts/installer.sh.in`](../scripts/installer.sh.in)、処理本体は[`scripts/install-runtime.py`](../scripts/install-runtime.py)です。[`scripts/package-release.py`](../scripts/package-release.py)は検証済みSHA-256のバイナリーだけを受け付け、再現可能な時刻・並び順で配布物を生成します。
 
-配布物を生成する開発用ツールにはPython 3.10以上が必要です。ダウンロードした導入シェルは、検証対象のCentOS 7にあるPython 2.7で実行します。
+配布物を生成する開発用ツールにはPython 3.10以上が必要です。導入シェルは`python`、`python2.7`、`python3`の順に確認し、Python 2.7または3.6以上を選びます。OS標準のPythonを置き換える処理はありません。復旧スクリプトにも選択したインタープリターを記録します。
 
 PHP本体の再ビルドは[`scripts/build-remi54.sh`](../scripts/build-remi54.sh)を使用します。署名を検証した元SRPMへ既存のRemiパッチと本プロジェクトのパッチを適用します。詳細は[ビルド手順](build.md)と[検証項目](validation.md)を参照してください。
+
+## 実行時のエラー
+
+### TarFileの__exit__エラー
+
+`AttributeError: 'TarFile' object has no attribute '__exit__'`は、展開処理が使用している`TarFile`にcontext manager機能がない場合に発生します。`v0.1.1`ではこの機能に依存しない処理へ変更しています。導入シェルとチェックサムを両方取得し直してください。
+
+使用できるPythonが見つからなければ、展開前に必要なバージョンと検出結果を表示して終了します。確認には次のコマンドを使用します。
+
+```sh
+python -V 2>&1
+cat /etc/redhat-release
+command -v python2.7 python3
+```
+
+Pythonだけを追加しても、別OSや別ライブラリの環境へ配布モジュールを適用できるわけではありません。CentOS 6やPython 2.6のみの構成に対し、OS標準のPythonを無条件に置き換えたり、対応条件を外して強制適用したりしないでください。
+
+CentOS 6などの対応外OSは、Pythonの選択やアーカイブ展開より前に拒否します。`This binary release supports CentOS 7 x86_64 only`と表示された場合、この配布モジュールはその環境に適用できません。
+
+### 確認URLのエラー
+
+`Use an http(s)://127.0.0.1/... health URL`と表示されたら、確認先を同じサーバーのループバックアドレスへ変更してください。
+
+```sh
+sudo bash php2shellblock-install.sh --check \
+  --health-url http://127.0.0.1/login.php \
+  --host-header example.com
+```
+
+`example.com`は既存VirtualHostのHost名に置き換えます。名前による選択が不要なら`--host-header`は省略できます。接続拒否の場合は、既存Apacheの待受け設定を確認し、設定を無条件に変更しないでください。

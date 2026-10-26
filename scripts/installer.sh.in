@@ -26,7 +26,41 @@ Use a stable, read-only page that returns HTTP 200. Redirects are not followed.
 --apply includes the checks, then backs up and gracefully reloads Apache only.
 Asterisk, MariaDB, SSH, PHP RPMs and /usr/bin/php are not changed.
 HTTPS response checks allow self-signed certificates; this is not a TLS trust test.
+Python 2.7 or Python 3.6+ is selected automatically without replacing the system Python.
 USAGE
+}
+
+check_platform() {
+    # Pythonを起動する前に、EL7用バイナリーの対象OS・CPUを確認する。
+    local release_file=${1:-/etc/centos-release} architecture=${2:-$(uname -m)} release_line=''
+    if [ -r "$release_file" ]; then
+        IFS= read -r release_line < "$release_file" || true
+    fi
+    case "$architecture:$release_line" in
+        'x86_64:CentOS Linux release 7.'*) return 0;;
+    esac
+    echo 'ERROR: This binary release supports CentOS 7 x86_64 only. Nothing has been applied.' >&2
+    printf 'Detected OS: %s; architecture: %s\n' "${release_line:-unavailable}" "$architecture" >&2
+    return 1
+}
+
+select_python() {
+    # 展開前に実行可能なPythonを選ぶ。OS標準のpythonが古くても置き換えない。
+    local candidate resolved detected='' detected_version
+    for candidate in python python2.7 python3; do
+        resolved=$(command -v "$candidate" 2>/dev/null || true)
+        [ -n "$resolved" ] || continue
+        if "$resolved" -E -c 'import sys; v=sys.version_info; sys.exit(0 if ((v[0] == 2 and v[1] >= 7) or (v[0] == 3 and v[1] >= 6)) else 1)' >/dev/null 2>&1; then
+            printf '%s\n' "$resolved"
+            return 0
+        fi
+        detected_version=$("$resolved" -E -c 'import sys; sys.stdout.write(".".join(str(x) for x in sys.version_info[:3]))' 2>/dev/null || true)
+        detected="${detected}${candidate}=${detected_version:-unavailable} "
+    done
+    echo 'ERROR: Python 2.7 or Python 3.6+ is required. Nothing has been applied.' >&2
+    printf 'Detected: %s\n' "${detected:-no Python interpreter found}" >&2
+    echo 'This release supports CentOS 7 x86_64; installing Python does not make another OS compatible.' >&2
+    return 1
 }
 
 if [ "$#" -eq 0 ] || [ "${1:-}" = '--help' ] || [ "${1:-}" = '-h' ]; then
@@ -41,7 +75,10 @@ if [ "$(id -u)" -ne 0 ]; then
     echo 'Run with sudo/root.' >&2
     exit 1
 fi
-for utility in python base64 sha256sum awk mktemp; do
+check_platform
+python_runtime=$(select_python)
+printf 'Using Python: %s\n' "$python_runtime"
+for utility in base64 sha256sum awk mktemp; do
     command -v "$utility" >/dev/null || { echo "Missing utility: $utility" >&2; exit 1; }
 done
 work=$(mktemp -d /var/tmp/php2shellblock-installer.XXXXXXXX)
@@ -66,11 +103,12 @@ printf '%s  %s\n' "$payload_sha" "$work/payload.tar.gz" | sha256sum --check --st
     exit 1
 }
 # tarのパストラバーサル・リンク・デバイスを拒否してから、root専用ディレクトリへ展開する。
-python -E - "$work/payload.tar.gz" "$work" <<'PY'
+"$python_runtime" -E - "$work/payload.tar.gz" "$work" <<'PY'
 from __future__ import print_function
 import os, sys, tarfile
 archive, destination = sys.argv[1:]
-with tarfile.open(archive, 'r:gz') as stream:
+stream = tarfile.open(archive, 'r:gz')
+try:
     members = stream.getmembers()
     if len(members) > 1000 or sum(item.size for item in members) > 100 * 1024 * 1024:
         raise RuntimeError('Unexpected payload size')
@@ -95,10 +133,12 @@ with tarfile.open(archive, 'r:gz') as stream:
             finally:
                 source.close()
             os.chmod(target, 0o600)
+finally:
+    stream.close()
 PY
 echo "php2shellblock $version: checking before any live configuration change."
 # パイプ経由の任意コード実行を避け、照合済みファイルを指定して起動する。
-python -E "$work/payload/install-runtime.py" --payload "$work/payload" "$@" &
+"$python_runtime" -E "$work/payload/install-runtime.py" --payload "$work/payload" "$@" &
 child=$!
 result=0
 wait "$child" || result=$?

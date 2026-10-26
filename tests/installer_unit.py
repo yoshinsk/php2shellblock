@@ -9,6 +9,7 @@ import json
 import os
 import shutil
 import signal
+import sys
 import tempfile
 import unittest
 
@@ -126,6 +127,14 @@ class TransactionTests(unittest.TestCase):
             self.assertEqual(self.instance.rollback(backup)["result"], "rolled_back")
             self.assertEqual(runtime.read(self.system.config), self.config)
             self.assertEqual(self.system.reload_count, 2)
+
+    def test_rollback_uses_selected_interpreter(self):
+        with self.environment():
+            result = self.instance.install(self.urls)
+        expected = os.path.realpath(sys.executable)
+        state = json.loads(runtime.read(result["backup"] + "/state.json"))
+        self.assertEqual(state["python_executable"], expected)
+        self.assertIn("exec " + runtime.shell_quote(expected) + " -E ", runtime.read(result["backup"] + "/rollback.sh"))
 
     def test_failed_health_automatically_rolls_back(self):
         with self.environment(unhealthy=True):

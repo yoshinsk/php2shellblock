@@ -1,0 +1,13 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+# Windowsから検証サーバーへ転送してもスクリプトとパッチの改行を維持する。
+*.sh text eol=lf
+*.sh.in text eol=lf
+*.py text eol=lf
+*.c text eol=lf
+*.h text eol=lf
+*.m4 text eol=lf
+*.patch text eol=lf
+# 上流ライセンスとパッチのコンテキスト行は原文の空白を保持する。
+licenses/* -whitespace
+patches/*.patch -whitespace

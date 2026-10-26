@@ -1,0 +1,17 @@
+{
+  "base": "Remi php-5.4.45-19.remi.src.rpm",
+  "source_rpm_sha256": "daba229f3ee2f17157d8bffcd74b8281f2da2eb08b537b1e6070743459ab0280",
+  "patch_sha256": "a6496a7bd60dee3cdacb6173a2d63f06a79e0f2fe0454147efd29f47584c6a33",
+  "files": {
+    "Zend/zend_alloc.c": "1ff128661efe7f244267151b913c28c42940f1fbd9b213f8fe10ef49637fa7e1",
+    "Zend/zend_alloc.h": "398d48ee22b027c4dd61fbfc58a1931846549df61d7dbf11eef56809137c2e1a",
+    "Zend/zend_strtod.c": "4b880abdd2cfed20da2f9149342cfd28cc8bd1695f1bf359f970599f2109e73b",
+    "Zend/zend_operators.c": "5768a21e68630aceca1e55420a6a8e7d7ba6bdf53099403b6c80f4399173803f",
+    "Zend/zend_llist.c": "725a55cc3780fc7b67a5b92b7dd0021768f06879f19ade6b38f551a590eda229",
+    "Zend/zend_execute_API.c": "577f641bc2e3366f0802ef958699254fe3c2f16d70722be4127de52e53cbeae4",
+    "main/SAPI.c": "9c07f47ae4a9ef93f083d863940799750582b45a490a8fa1f60a4ed2d70d3548",
+    "main/main.c": "8c64dc62a24142875d71fce6b540fa230245c1d24d25833e0afd3a5d2026e7fe",
+    "ext/session/session.c": "a8858de2a42047ab59699c8fbccbdaf93f882337e00916453949aa07573d8874",
+    "main/rfc1867.c": "8a31cc636f9bf548ed0f2eae554f86983050bd1b2451ea5840dceceed277857a"
+  }
+}

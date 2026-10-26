@@ -1,0 +1,107 @@
+#!/bin/bash
+# scripts/installer.sh.in: 配布用自己展開シェルの生成元。検証済みpayloadを展開してPython側へ引き渡す。
+# このファイル単体は生成元です。実行用ファイルはGitHub Releasesから取得してください。
+set -eu
+set -o pipefail
+umask 077
+version='@VERSION@'
+payload_sha='@PAYLOAD_SHA256@'
+
+usage() {
+    cat <<'USAGE'
+php2shellblock installer @VERSION@
+
+Supported: CentOS 7 x86_64 / Remi PHP 5.4.45-19 / Apache 2.4.6 prefork.
+This is an independent backport. Real attack resistance is NOT verified.
+
+Usage:
+  sudo bash php2shellblock-install.sh --check --health-url http://127.0.0.1/login.php
+  sudo bash php2shellblock-install.sh --apply --health-url http://127.0.0.1/login.php
+  sudo bash php2shellblock-install.sh --status
+  sudo bash php2shellblock-install.sh --rollback /var/lib/php2shellblock/BACKUP_DIRECTORY
+
+Repeat --health-url for HTTP/HTTPS pages. --host-header example.com selects a vhost.
+Use a stable, read-only page that returns HTTP 200. Redirects are not followed.
+--check runs isolated PHP tests and GET requests, without reloading the live service.
+--apply includes the checks, then backs up and gracefully reloads Apache only.
+Asterisk, MariaDB, SSH, PHP RPMs and /usr/bin/php are not changed.
+HTTPS response checks allow self-signed certificates; this is not a TLS trust test.
+USAGE
+}
+
+if [ "$#" -eq 0 ] || [ "${1:-}" = '--help' ] || [ "${1:-}" = '-h' ]; then
+    usage
+    exit 0
+fi
+case "$payload_sha" in
+    *[!a-f0-9]*|'') echo 'This is a source template. Download the executable release asset.' >&2; exit 2;;
+esac
+[ "${#payload_sha}" -eq 64 ] || { echo 'Invalid embedded checksum.' >&2; exit 2; }
+if [ "$(id -u)" -ne 0 ]; then
+    echo 'Run with sudo/root.' >&2
+    exit 1
+fi
+for utility in python base64 sha256sum awk mktemp; do
+    command -v "$utility" >/dev/null || { echo "Missing utility: $utility" >&2; exit 1; }
+done
+work=$(mktemp -d /var/tmp/php2shellblock-installer.XXXXXXXX)
+child=''
+cleanup() {
+    # mktempが作成した固定接頭辞のディレクトリだけを削除する。
+    case "$work" in /var/tmp/php2shellblock-installer.????????) rm -rf -- "$work";; esac
+}
+interrupted() {
+    trap '' INT TERM HUP
+    if [ -n "$child" ]; then
+        kill -TERM "$child" 2>/dev/null || true
+        wait "$child" 2>/dev/null || true
+    fi
+    exit 130
+}
+trap cleanup EXIT
+trap interrupted INT TERM HUP
+awk '/^__PHP2SHELLBLOCK_PAYLOAD__$/{body=1;next} body{print}' "$0" | base64 --decode > "$work/payload.tar.gz"
+printf '%s  %s\n' "$payload_sha" "$work/payload.tar.gz" | sha256sum --check --status || {
+    echo 'Payload checksum mismatch; nothing applied.' >&2
+    exit 1
+}
+# tarのパストラバーサル・リンク・デバイスを拒否してから、root専用ディレクトリへ展開する。
+python -E - "$work/payload.tar.gz" "$work" <<'PY'
+from __future__ import print_function
+import os, sys, tarfile
+archive, destination = sys.argv[1:]
+with tarfile.open(archive, 'r:gz') as stream:
+    members = stream.getmembers()
+    if len(members) > 1000 or sum(item.size for item in members) > 100 * 1024 * 1024:
+        raise RuntimeError('Unexpected payload size')
+    seen = set()
+    for item in members:
+        parts = item.name.split('/')
+        if item.name.startswith('/') or '..' in parts or not item.name.startswith('payload/') or not (item.isfile() or item.isdir()) or item.name in seen:
+            raise RuntimeError('Unsafe archive member')
+        seen.add(item.name)
+    for item in members:
+        target = os.path.join(destination, item.name)
+        if item.isdir():
+            if not os.path.isdir(target): os.makedirs(target, 0o700)
+        else:
+            parent = os.path.dirname(target)
+            if not os.path.isdir(parent): os.makedirs(parent, 0o700)
+            source = stream.extractfile(item)
+            try:
+                with open(target, 'wb') as output:
+                    import shutil
+                    shutil.copyfileobj(source, output)
+            finally:
+                source.close()
+            os.chmod(target, 0o600)
+PY
+echo "php2shellblock $version: checking before any live configuration change."
+# パイプ経由の任意コード実行を避け、照合済みファイルを指定して起動する。
+python -E "$work/payload/install-runtime.py" --payload "$work/payload" "$@" &
+child=$!
+result=0
+wait "$child" || result=$?
+child=''
+exit "$result"
+__PHP2SHELLBLOCK_PAYLOAD__

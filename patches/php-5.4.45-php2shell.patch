@@ -1,0 +1,445 @@
+--- a/Zend/zend_alloc.c
++++ b/Zend/zend_alloc.c
+@@ -91,7 +91,7 @@
+ #if ZEND_DEBUG && defined(HAVE_KILL) && defined(HAVE_GETPID)
+ 	kill(getpid(), SIGSEGV);
+ #endif
+-	exit(1);
++	_exit(1);
+ }
+ 
+ /*******************/
+@@ -1736,6 +1736,19 @@
+ 	}
+ }
+ 
++/* Zend/zend_alloc.c: OOM では不完全な状態の後処理をせずワーカーを終了する。 */
++ZEND_API void zend_mm_safe_error_ex(const char *format, ...)
++{
++	char buffer[1024];
++	va_list args;
++	va_start(args, format);
++	vsnprintf(buffer, sizeof(buffer), format, args);
++	va_end(args);
++	/* PHP のエラー処理やリクエストメモリーには触れない。 */
++	fprintf(stderr, "\nFatal error: %s\n", buffer);
++	_exit(1);
++}
++
+ static void zend_mm_safe_error(zend_mm_heap *heap,
+ 	const char *format,
+ 	size_t limit,
+@@ -1745,59 +1758,12 @@
+ #endif
+ 	size_t size)
+ {
+-	if (heap->reserve) {
+-		_zend_mm_free_int(heap, heap->reserve ZEND_FILE_LINE_CC ZEND_FILE_LINE_EMPTY_CC);
+-		heap->reserve = NULL;
+-	}
+-	if (heap->overflow == 0) {
+-		const char *error_filename;
+-		uint error_lineno;
+-		TSRMLS_FETCH();
+-		if (zend_is_compiling(TSRMLS_C)) {
+-			error_filename = zend_get_compiled_filename(TSRMLS_C);
+-			error_lineno = zend_get_compiled_lineno(TSRMLS_C);
+-		} else if (EG(in_execution)) {
+-			error_filename = EG(active_op_array)?EG(active_op_array)->filename:NULL;
+-			error_lineno = EG(opline_ptr)?(*EG(opline_ptr))->lineno:0;
+-		} else {
+-			error_filename = NULL;
+-			error_lineno = 0;
+-		}
+-		if (!error_filename) {
+-			error_filename = "Unknown";
+-		}
+-		heap->overflow = 1;
+-		zend_try {
+-			zend_error_noreturn(E_ERROR,
+-				format,
+-				limit,
++	(void) heap;
++	zend_mm_safe_error_ex(format, limit,
+ #if ZEND_DEBUG
+-				filename,
+-				lineno,
+-#endif
+-				size);
+-		} zend_catch {
+-			if (heap->overflow == 2) {
+-				fprintf(stderr, "\nFatal error: ");
+-				fprintf(stderr,
+-					format,
+-					limit,
+-#if ZEND_DEBUG
+-					filename,
+-					lineno,
+-#endif
+-					size);
+-				fprintf(stderr, " in %s on line %d\n", error_filename, error_lineno);
+-			}
+-/* See http://support.microsoft.com/kb/190351 */
+-#ifdef PHP_WIN32
+-			fflush(stderr);
+-#endif
+-		} zend_end_try();
+-	} else {
+-		heap->overflow = 2;
+-	}
+-	zend_bailout();
++		filename, lineno,
++#endif
++		size);
+ }
+ 
+ static zend_mm_free_block *zend_mm_search_large_block(zend_mm_heap *heap, size_t true_size)
+@@ -2468,7 +2434,7 @@
+ 	       "rm"(offset));
+ 
+ 	if (UNEXPECTED(overflow)) {
+-		zend_error_noreturn(E_ERROR, "Possible integer overflow in memory allocation (%zu * %zu + %zu)", nmemb, size, offset);
++		zend_mm_safe_error_ex("Possible integer overflow in memory allocation (%zu * %zu + %zu)", nmemb, size, offset);
+ 		return 0;
+ 	}
+ 	return res;
+@@ -2498,7 +2464,7 @@
+ #undef LP_SUFF
+ 
+         if (UNEXPECTED(overflow)) {
+-                zend_error_noreturn(E_ERROR, "Possible integer overflow in memory allocation (%zu * %zu + %zu)", nmemb, size, offset);
++                zend_mm_safe_error_ex("Possible integer overflow in memory allocation (%zu * %zu + %zu)", nmemb, size, offset);
+                 return 0;
+         }
+         return res;
+@@ -2511,7 +2477,7 @@
+ 	zend_ulong64 res = (zend_ulong64)nmemb * (zend_ulong64)size + (zend_ulong64)offset;
+ 
+ 	if (UNEXPECTED(res > (zend_ulong64)0xFFFFFFFFL)) {
+-		zend_error_noreturn(E_ERROR, "Possible integer overflow in memory allocation (%zu * %zu + %zu)", nmemb, size, offset);
++		zend_mm_safe_error_ex("Possible integer overflow in memory allocation (%zu * %zu + %zu)", nmemb, size, offset);
+ 		return 0;
+ 	}
+ 	return (size_t) res;
+@@ -2526,7 +2492,7 @@
+ 	double _delta = (double)res - _d;
+ 
+ 	if (UNEXPECTED((_d + _delta ) != _d)) {
+-		zend_error_noreturn(E_ERROR, "Possible integer overflow in memory allocation (%zu * %zu + %zu)", nmemb, size, offset);
++		zend_mm_safe_error_ex("Possible integer overflow in memory allocation (%zu * %zu + %zu)", nmemb, size, offset);
+ 		return 0;
+ 	}
+ 	return res;
+--- a/Zend/zend_alloc.h
++++ b/Zend/zend_alloc.h
+@@ -23,6 +23,12 @@
+ #define ZEND_ALLOC_H
+ 
+ #include <stdio.h>
++/* Zend/zend_alloc.h: 即時終了関数を正しく宣言する。 */
++#ifdef HAVE_UNISTD_H
++# include <unistd.h>
++#elif defined(PHP_WIN32)
++# include <process.h>
++#endif
+ 
+ #include "../TSRM/TSRM.h"
+ #include "zend.h"
+@@ -97,7 +103,7 @@
+ 		return tmp;
+ 	}
+ 	fprintf(stderr, "Out of memory\n");
+-	exit(1);
++	_exit(1);
+ }
+ 
+ inline static void * __zend_calloc(size_t nmemb, size_t len)
+@@ -114,7 +120,7 @@
+ 		return p;
+ 	}
+ 	fprintf(stderr, "Out of memory\n");
+-	exit(1);
++	_exit(1);
+ }
+ 
+ 
+@@ -230,6 +236,9 @@
+ 	void *data;
+ };
+ 
++/* Zend/zend_alloc.h: OOM/割当サイズ異常は PHP の後処理を経ず終了する。 */
++ZEND_API void zend_mm_safe_error_ex(const char *format, ...);
++
+ ZEND_API zend_mm_heap *zend_mm_startup_ex(const zend_mm_mem_handlers *handlers, size_t block_size, size_t reserve_size, int internal, void *params);
+ ZEND_API zend_mm_heap *zend_mm_set_heap(zend_mm_heap *new_heap TSRMLS_DC);
+ ZEND_API zend_mm_storage *zend_mm_get_storage(zend_mm_heap *heap);
+--- a/Zend/zend_strtod.c
++++ b/Zend/zend_strtod.c
+@@ -479,7 +479,7 @@
+ 	Bigint *rv;
+ 
+ 	if (k > Kmax) {
+-		zend_error(E_ERROR, "Balloc() allocation exceeds list boundary");
++		zend_mm_safe_error_ex("Balloc() allocation exceeds list boundary");
+ 	}
+ 
+ 	_THREAD_PRIVATE_MUTEX_LOCK(dtoa_mutex);
+@@ -490,7 +490,7 @@
+ 		rv = (Bigint *)MALLOC(sizeof(Bigint) + (x-1)*sizeof(Long));
+ 		if (!rv) {
+ 			_THREAD_PRIVATE_MUTEX_UNLOCK(dtoa_mutex);
+-			zend_error(E_ERROR, "Balloc() failed to allocate memory");
++			zend_mm_safe_error_ex("Balloc() failed to allocate memory");
+ 		}
+ 		rv->k = k;
+ 		rv->maxwds = x;
+--- a/Zend/zend_operators.c
++++ b/Zend/zend_operators.c
+@@ -1261,7 +1261,7 @@
+ 		if (Z_STRLEN_P(result) < 0 || (int) (Z_STRLEN_P(op1) + Z_STRLEN_P(op2)) < 0) {
+ 			efree(Z_STRVAL_P(result));
+ 			ZVAL_EMPTY_STRING(result);
+-			zend_error(E_ERROR, "String size overflow");
++			zend_mm_safe_error_ex("String size overflow");
+ 		}
+ 
+ 		Z_STRVAL_P(result) = safe_erealloc(Z_STRVAL_P(result), res_len, 1, 1);
+@@ -1274,7 +1274,7 @@
+ 		char *buf;
+ 
+ 		if (Z_STRLEN_P(op1) < 0 || Z_STRLEN_P(op2) < 0 || (int) (Z_STRLEN_P(op1) + Z_STRLEN_P(op2)) < 0) {
+-			zend_error(E_ERROR, "String size overflow");
++			zend_mm_safe_error_ex("String size overflow");
+ 		}
+ 		buf = (char *) safe_emalloc(length, 1, 1);
+ 
+--- a/Zend/zend_llist.c
++++ b/Zend/zend_llist.c
+@@ -117,6 +117,8 @@
+ 		current = next;
+ 	}
+ 
++	l->head = NULL;
++	l->tail = NULL;
+ 	l->count = 0;
+ }
+ 
+--- a/Zend/zend_execute_API.c
++++ b/Zend/zend_execute_API.c
+@@ -331,6 +331,20 @@
+ 			FREE_HASHTABLE(EG(in_autoload));
+ 		}
+ 	} zend_end_try();
++
++	/* Zend/zend_execute_API.c: bailout が後処理を中断しても参照を残さない。 */
++	EG(user_error_handler) = NULL;
++	EG(user_exception_handler) = NULL;
++	memset(&EG(user_error_handlers_error_reporting), 0, sizeof(EG(user_error_handlers_error_reporting)));
++	memset(&EG(user_error_handlers), 0, sizeof(EG(user_error_handlers)));
++	memset(&EG(user_exception_handlers), 0, sizeof(EG(user_exception_handlers)));
++	EG(error_handling) = EH_NORMAL;
++	EG(exception) = NULL;
++	EG(prev_exception) = NULL;
++	EG(objects_store).object_buckets = NULL;
++	EG(objects_store).top = 1;
++	EG(current_execute_data) = NULL;
++	EG(in_execution) = 0;
+ 
+ 	zend_shutdown_fpu(TSRMLS_C);
+ 
+--- a/main/SAPI.c
++++ b/main/SAPI.c
+@@ -503,6 +503,7 @@
+ 	zend_llist_destroy(&SG(sapi_headers).headers);
+ 	if (SG(request_info).post_data) {
+ 		efree(SG(request_info).post_data);
++		SG(request_info).post_data = NULL;
+ 	}  else 	if (SG(server_context)) {
+ 		if(sapi_module.read_post) { 
+ 			/* make sure we've consumed all request input data */
+@@ -516,21 +517,27 @@
+ 	}
+ 	if (SG(request_info).raw_post_data) {
+ 		efree(SG(request_info).raw_post_data);
++		SG(request_info).raw_post_data = NULL;
+ 	} 
+ 	if (SG(request_info).auth_user) {
+ 		efree(SG(request_info).auth_user);
++		SG(request_info).auth_user = NULL;
+ 	}
+ 	if (SG(request_info).auth_password) {
+ 		efree(SG(request_info).auth_password);
++		SG(request_info).auth_password = NULL;
+ 	}
+ 	if (SG(request_info).auth_digest) {
+ 		efree(SG(request_info).auth_digest);
++		SG(request_info).auth_digest = NULL;
+ 	}
+ 	if (SG(request_info).content_type_dup) {
+ 		efree(SG(request_info).content_type_dup);
++		SG(request_info).content_type_dup = NULL;
+ 	}
+ 	if (SG(request_info).current_user) {
+ 		efree(SG(request_info).current_user);
++		SG(request_info).current_user = NULL;
+ 	}
+ 	if (sapi_module.deactivate) {
+ 		sapi_module.deactivate(TSRMLS_C);
+@@ -548,7 +555,9 @@
+ 	SG(callback_run) = 0;
+ 	if (SG(callback_func)) {
+ 		zval_ptr_dtor(&SG(callback_func));
+-	}
++		SG(callback_func) = NULL;
++	}
++	memset(&SG(fci_cache), 0, sizeof(SG(fci_cache)));
+ 	SG(request_info).headers_read = 0;
+ 	SG(global_request_time) = 0;
+ }
+--- a/main/main.c
++++ b/main/main.c
+@@ -557,6 +557,7 @@
+ 	PHP_INI_ENTRY("mail.force_extra_parameters",NULL,		PHP_INI_SYSTEM|PHP_INI_PERDIR,		OnChangeMailForceExtra)
+ 	PHP_INI_ENTRY("disable_functions",			"",			PHP_INI_SYSTEM,		NULL)
+ 	PHP_INI_ENTRY("disable_classes",			"",			PHP_INI_SYSTEM,		NULL)
++	PHP_INI_ENTRY("max_multipart_body_parts", "-1", PHP_INI_SYSTEM|PHP_INI_PERDIR, NULL)
+ 	PHP_INI_ENTRY("max_file_uploads",			"20",		PHP_INI_SYSTEM|PHP_INI_PERDIR,		NULL)
+ 
+ 	STD_PHP_INI_BOOLEAN("allow_url_fopen",		"1",		PHP_INI_SYSTEM,		OnUpdateBool,		allow_url_fopen,		php_core_globals,		core_globals)
+@@ -1694,6 +1695,7 @@
+ 		for (i = 0; i < NUM_TRACK_VARS; i++) {
+ 			if (PG(http_globals)[i]) {
+ 				zval_ptr_dtor(&PG(http_globals)[i]);
++				PG(http_globals)[i] = NULL;
+ 			}
+ 		}
+ 	} zend_end_try();
+@@ -1790,6 +1792,7 @@
+ 		for (i=0; i<NUM_TRACK_VARS; i++) {
+ 			if (PG(http_globals)[i]) {
+ 				zval_ptr_dtor(&PG(http_globals)[i]);
++				PG(http_globals)[i] = NULL;
+ 			}
+ 		}
+ 	} zend_end_try();
+@@ -1821,6 +1824,26 @@
+ 	zend_try {
+ 		php_shutdown_stream_hashes(TSRMLS_C);
+ 	} zend_end_try();
++
++	/* main/main.c: 後段の拡張/SAPI が再設定した状態もヒープ解放前に破棄する。 */
++	EG(user_error_handler) = NULL;
++	EG(user_exception_handler) = NULL;
++	EG(error_handling) = EH_NORMAL;
++	EG(exception) = NULL;
++	EG(prev_exception) = NULL;
++	/* destructor の bailout で残りの要素解放が中断された場合も全参照を外す。 */
++	memset(PG(http_globals), 0, sizeof(PG(http_globals)));
++	SG(callback_func) = NULL;
++	memset(&SG(fci_cache), 0, sizeof(SG(fci_cache)));
++	PG(modules_activated) = 0;
++	if (PG(last_error_message)) {
++		free(PG(last_error_message));
++		PG(last_error_message) = NULL;
++	}
++	if (PG(last_error_file)) {
++		free(PG(last_error_file));
++		PG(last_error_file) = NULL;
++	}
+ 
+ 	/* 11. Free Willy (here be crashes) */
+ 	zend_try {
+--- a/ext/session/session.c
++++ b/ext/session/session.c
+@@ -2472,7 +2472,8 @@
+ 	if (php_session_rfc1867_orig_callback) {
+ 		retval = php_session_rfc1867_orig_callback(event, event_data, extra TSRMLS_CC);
+ 	}
+-	if (!PS(rfc1867_enabled)) {
++	/* ext/session/session.c: 公式 EOL 対策に従い初期化前のセッション処理を無効化する。 */
++	if (!PS(rfc1867_enabled) || 1) {
+ 		return retval;
+ 	}
+ 
+--- a/main/rfc1867.c
++++ b/main/rfc1867.c
+@@ -395,6 +395,14 @@
+ 	return 0;
+ }
+ 
++/* main/rfc1867.c: 使用する MIME ヘッダーのみを保存し重複を無視する。 */
++static int php_mime_should_save_hdr(const char *name)
++{
++	return !strcasecmp(name, "Content-Disposition") || !strcasecmp(name, "Content-Type");
++}
++
++static char *php_mime_get_hdr_value(zend_llist header, char *key);
++
+ /* parse headers */
+ static int multipart_buffer_headers(multipart_buffer *self, zend_llist *header TSRMLS_DC)
+ {
+@@ -436,10 +444,13 @@
+ 			}
+ 
+ 			*value = '\0';
+-			do { value++; } while(isspace(*value));
+-
+-			key = estrdup(line);
+-			smart_str_appends(&buf_value, value);
++			if (!php_mime_should_save_hdr(line) || php_mime_get_hdr_value(*header, line)) {
++				key = NULL;
++			} else {
++				key = estrdup(line);
++				do { value++; } while (isspace((unsigned char)*value));
++				smart_str_appends(&buf_value, value);
++			}
+ 		} else if (buf_value.c) { /* If no ':' on the line, add to previous line */
+ 			smart_str_appends(&buf_value, line);
+ 		} else {
+@@ -512,11 +523,11 @@
+ 	return res;
+ }
+ 
+-static char *substring_conf(char *start, int len, char quote)
++static char *substring_conf(char *start, size_t len, char quote)
+ {
+ 	char *result = emalloc(len + 1);
+ 	char *resp = result;
+-	int i;
++	size_t i;
+ 
+ 	for (i = 0; i < len && start[i] != quote; ++i) {
+ 		if (start[i] == '\\' && (start[i + 1] == '\\' || (quote && start[i + 1] == quote))) {
+@@ -690,6 +701,8 @@
+ 	void *event_extra_data = NULL;
+ 	unsigned int llen = 0;
+ 	int upload_cnt = INI_INT("max_file_uploads");
++	long body_parts_cnt = INI_INT("max_multipart_body_parts");
++	long body_parts_limit;
+ 	const zend_encoding *internal_encoding = zend_multibyte_get_internal_encoding(TSRMLS_C);
+ 	php_rfc1867_getword_t getword;
+ 	php_rfc1867_getword_conf_t getword_conf;
+@@ -711,6 +724,11 @@
+ 		return;
+ 	}
+ 
++	if (body_parts_cnt < 0) {
++		body_parts_cnt = PG(max_input_vars) + upload_cnt;
++	}
++	body_parts_limit = body_parts_cnt;
++
+ 	/* Get the boundary */
+ 	boundary = strstr(content_type_dup, "boundary");
+ 	if (!boundary) {
+@@ -788,6 +806,11 @@
+ 		zend_llist_clean(&header);
+ 
+ 		if (!multipart_buffer_headers(mbuff, &header TSRMLS_CC)) {
++			goto fileupload_done;
++		}
++
++		if (--body_parts_cnt < 0) {
++			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Multipart body parts limit exceeded %ld", body_parts_limit);
+ 			goto fileupload_done;
+ 		}
+ 

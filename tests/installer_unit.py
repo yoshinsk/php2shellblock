@@ -40,27 +40,34 @@ def patched(**changes):
 
 class InputTests(unittest.TestCase):
     def test_exact_rpm_profiles_and_ini_additions(self):
-        # 既存の-19系を維持し、実測した-18系だけを追加する。混在版は拒否する。
+        # 既存の-19系と-18系を維持し、実測した-17系だけを追加する。混在版は拒否する。
         names = ("php", "php-common", "php-cli")
-        legacy = {"rpm_release": runtime.RPM_18, "original_module_sha256": runtime.ORIGINAL_SHA_18,
-                  "libraries": {"/lib64/libc.so.6": "legacy"}}
+        legacy18 = {"rpm_release": runtime.RPM_18, "original_module_sha256": runtime.ORIGINAL_SHA_18,
+                    "libraries": {"/lib64/libc.so.6": "legacy18"}}
+        legacy17 = {"rpm_release": runtime.RPM_17, "original_module_sha256": runtime.ORIGINAL_SHA_17,
+                    "libraries": {"/lib64/libc.so.6": "legacy17"}}
         manifest = {"libraries": {"/lib64/libc.so.6": "current"},
-                    "profiles": {"remi-5.4.45-18-el7": legacy}}
-        old = {name: name + "-" + runtime.RPM_18 for name in names}
+                    "profiles": {"remi-5.4.45-18-el7": legacy18,
+                                 "remi-5.4.45-17-el7": legacy17}}
+        old18 = {name: name + "-" + runtime.RPM_18 for name in names}
+        old17 = {name: name + "-" + runtime.RPM_17 for name in names}
         new = {name: name + "-" + runtime.RPM_19 for name in names}
-        self.assertEqual(runtime.select_profile(manifest, old)[0]["/lib64/libc.so.6"], "legacy")
+        self.assertEqual(runtime.select_profile(manifest, old18)[0]["/lib64/libc.so.6"], "legacy18")
+        self.assertEqual(runtime.select_profile(manifest, old17)[0]["/lib64/libc.so.6"], "legacy17")
         self.assertEqual(runtime.select_profile(manifest, new)[0]["/lib64/libc.so.6"], "current")
         self.assertIn(runtime.PREVIOUS_SHA, runtime.select_profile(manifest, new)[1])
-        self.assertNotIn(runtime.PREVIOUS_SHA, runtime.select_profile(manifest, old)[1])
+        self.assertNotIn(runtime.PREVIOUS_SHA, runtime.select_profile(manifest, old18)[1])
+        self.assertNotIn(runtime.PREVIOUS_SHA, runtime.select_profile(manifest, old17)[1])
         self.assertEqual(runtime.expected_ini_additions(runtime.ORIGINAL_SHA_18), set(["max_multipart_body_parts"]))
+        self.assertEqual(runtime.expected_ini_additions(runtime.ORIGINAL_SHA_17), set(["max_multipart_body_parts"]))
         self.assertEqual(runtime.expected_ini_additions(runtime.ORIGINAL_SHA), set(["max_multipart_body_parts"]))
         self.assertEqual(runtime.expected_ini_additions(runtime.PREVIOUS_SHA), set())
-        old["php-cli"] = new["php-cli"]
+        old17["php-cli"] = new["php-cli"]
         with self.assertRaises(RuntimeError):
-            runtime.select_profile(manifest, old)
-        legacy["original_module_sha256"] = "wrong"
+            runtime.select_profile(manifest, old17)
+        legacy17["original_module_sha256"] = "wrong"
         with self.assertRaises(RuntimeError):
-            runtime.select_profile(manifest, {name: name + "-" + runtime.RPM_18 for name in names})
+            runtime.select_profile(manifest, {name: name + "-" + runtime.RPM_17 for name in names})
 
     def test_loopback_urls(self):
         self.assertEqual(runtime.parse_url("https://127.0.0.1:50443/login.php").port, 50443)

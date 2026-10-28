@@ -7,16 +7,16 @@ PHP 5.4.45向けの独自バックポートと、Apache mod_php用の導入ツ�
 
 PHPプロジェクトやRemiの公式修正版ではありません。Remi `5.4.45-19`の元モジュールと修正版で、**両CVEの確認済み経路を修正前後で比較検証しました。** 元版でOOM後のSegmentation faultを再現し、修正版ではワーカーの終了と次要求の正常応答を確認しています。[試験条件と結果](docs/security-validation.md)を参照してください。任意コード実行と全攻撃経路への有効性は未検証です。
 
-Remi `5.4.45-18`の追加対応では、同じ修正版モジュールの隔離Apacheでの互換性を確認しました。`-18`の元モジュールを使った両CVEの修正前後比較は実施していません。
+Remi `5.4.45-17`と`5.4.45-18`の追加対応では、同じ修正版モジュールの隔離Apacheでの互換性を確認しました。これらの元モジュールを使った両CVEの修正前後比較は実施していません。
 
 ## ダウンロード
 
-[導入シェル](https://github.com/yoshinsk/php2shellblock/releases/download/v0.1.3/php2shellblock-install.sh) · [チェックサム](https://github.com/yoshinsk/php2shellblock/releases/download/v0.1.3/php2shellblock-install.sh.sha256) · [リリース一覧](https://github.com/yoshinsk/php2shellblock/releases)
+[導入シェル](https://github.com/yoshinsk/php2shellblock/releases/download/v0.1.4/php2shellblock-install.sh) · [チェックサム](https://github.com/yoshinsk/php2shellblock/releases/download/v0.1.4/php2shellblock-install.sh.sha256) · [リリース一覧](https://github.com/yoshinsk/php2shellblock/releases)
 
 導入シェルは検証対象のPHPモジュールを同梱した自己展開形式です。モジュールを追加取得したり、対象サーバーでビルドしたりする必要はありません。
 
 ```sh
-release_url='https://github.com/yoshinsk/php2shellblock/releases/download/v0.1.3'
+release_url='https://github.com/yoshinsk/php2shellblock/releases/download/v0.1.4'
 curl --fail --location --output php2shellblock-install.sh "$release_url/php2shellblock-install.sh"
 curl --fail --location --output php2shellblock-install.sh.sha256 "$release_url/php2shellblock-install.sh.sha256"
 sha256sum --check php2shellblock-install.sh.sha256
@@ -29,22 +29,23 @@ sha256sum --check php2shellblock-install.sh.sha256
 |項目|条件|
 |---|---|
 |OS・CPU|CentOS Linux 7、x86_64|
-|PHP RPM|`php`・`php-common`・`php-cli`が全て`5.4.45-18.el7.remi.x86_64`または全て`5.4.45-19.el7.remi.x86_64`|
+|PHP RPM|`php`・`php-common`・`php-cli`が全て`5.4.45-17.el7.remi.x86_64`、全て`5.4.45-18.el7.remi.x86_64`、または全て`5.4.45-19.el7.remi.x86_64`|
 |Apache|2.4.6、prefork、NTS mod_php|
 |モジュール設定|`/etc/httpd/conf.modules.d/10-php.conf`|
 |SELinux|DisabledまたはPermissive|
 |実行権限|rootまたはsudo|
 
-元のPHPモジュールと主要ライブラリ4点のSHA-256も照合します。`-18`は実測した1構成のハッシュに限定します。同じRPM版でもライブラリが異なる環境には適用しません。PHP-FPM、CGI、ZTS、Apache worker/event、別OSは自動適用の対象外です。強制適用オプションはありません。
+元のPHPモジュールと主要ライブラリ4点のSHA-256も照合します。`-17`と`-18`は、それぞれ実測した構成のハッシュに限定します。同じRPM版でもライブラリが異なる環境には適用しません。PHP-FPM、CGI、ZTS、Apache worker/event、別OSは自動適用の対象外です。強制適用オプションはありません。
 
 必要なコマンドや空き容量は[導入手順の対応環境](docs/install.md#対応環境)を参照してください。
 
 Pythonは2.7または3.6以上を使用します。`python`、`python2.7`、`python3`の順に利用可能なものを選びます。Python 2.6のみの環境やCentOS 6は対応外です。[実行時のエラー](docs/install.md#実行時のエラー)も参照してください。
 
-`v0.1.1`を適用済みの`-19`環境は、`v0.1.3`の導入シェルで更新できます。更新前の設定とモジュールを退避し、ロールバック時は`v0.1.1`へ戻します。`v0.1.2`と`v0.1.3`のPHPモジュールは同一です。すでに`v0.1.2`を適用済みなら、再適用せずに終了します。
+`v0.1.1`を適用済みの`-19`環境は、`v0.1.4`の導入シェルで更新できます。更新前の設定とモジュールを退避し、ロールバック時は`v0.1.1`へ戻します。`v0.1.2`以降のPHPモジュールは同一です。すでにそのモジュールが稼働中なら、再適用せずに終了します。
 
 ## 更新履歴
 
+- `v0.1.4`（2026年10月28日）：Remi `5.4.45-17.el7.remi.x86_64`の実測構成を追加しました。元モジュールと主要ライブラリのハッシュを照合し、既存の`-18`・`-19`構成に対する判定と復旧処理を維持しています。PHPモジュール本体は変更していません。
 - `v0.1.3`（2026年10月28日）：Remi `5.4.45-18.el7.remi.x86_64`の実測構成を追加しました。元モジュールと主要ライブラリのハッシュを厳密に照合し、既存の`-19`構成に対する判定・復旧処理は維持しています。PHPモジュール本体は`v0.1.2`から変更していません。
 - `v0.1.2`：PHP 5.4向けの文字列長検査を補強し、両CVEの確認済み経路について修正前後を比較しました。
 

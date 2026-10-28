@@ -29,6 +29,16 @@ REMI_18_PROFILE = {
         "/lib64/libpcre.so.1": "9513aab50d64bb4655550e1ba0c62fbcf6e7cbe0d64cba0814224d2631a85027",
     },
 }
+REMI_17_PROFILE = {
+    "rpm_release": "5.4.45-17.el7.remi.x86_64",
+    "original_module_sha256": "83cc21b009dd32360f8091f4ec131f12535a8b5c5fc1433c24b195e3ba89957a",
+    "libraries": {
+        "/lib64/libc.so.6": "6824ca5921d376b3b8cfcef187deed223e95b1c4eb68f108e205831f467adc0f",
+        "/lib64/libssl.so.10": "cd1d62209c3e14cd9809d76cc446fdf54c2a272f4e9cba24278a38e72254931b",
+        "/lib64/libxml2.so.2": "3998bec4f844bab78f102637a3fcfc123662ff5bf307f628c8cbfa37a749b953",
+        "/lib64/libpcre.so.1": "9513aab50d64bb4655550e1ba0c62fbcf6e7cbe0d64cba0814224d2631a85027",
+    },
+}
 
 
 def sha(data):
@@ -91,7 +101,8 @@ def main():
         payload["php54-modified-sources/" + name] = content
     payload["php54-source-manifest.json"] = (json.dumps(source_manifest, indent=2, sort_keys=True) + "\n").encode()
     manifest = {"version": args.version, "revision": revision, "module_sha256": MODULE_SHA,
-                "libraries": LIBRARIES, "profiles": {"remi-5.4.45-18-el7": REMI_18_PROFILE},
+                "libraries": LIBRARIES, "profiles": {"remi-5.4.45-18-el7": REMI_18_PROFILE,
+                                                   "remi-5.4.45-17-el7": REMI_17_PROFILE},
                 "security_validation": "documented_oom_stale_session_crash_path",
                 "rce_validation": "not_performed",
                 "files": {path: sha(content) for path, content in payload.items()}}

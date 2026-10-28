@@ -34,8 +34,10 @@ CANDIDATE_SHA = "f83e471ca70d691b06f2f8957204d6a8e37821a7bb31b9e864e06d8497abae2
 PREVIOUS_SHA = "2b343438ad940ce1d5429f27e7b51ad2f16078687a3c3caa62b67502f4a2c315"
 ORIGINAL_SHA = "eeefbd609a2db685b419fb222c4863c598398b57ec08d7246ac5d49f2ed07641"
 ORIGINAL_SHA_18 = "35202da3529ffda4e585a1c443bdce86e372d4aced99053f023b31f219e4b8ae"
+ORIGINAL_SHA_17 = "83cc21b009dd32360f8091f4ec131f12535a8b5c5fc1433c24b195e3ba89957a"
 RPM_19 = "5.4.45-19.el7.remi.x86_64"
 RPM_18 = "5.4.45-18.el7.remi.x86_64"
+RPM_17 = "5.4.45-17.el7.remi.x86_64"
 
 
 def require(condition, message):
@@ -54,12 +56,17 @@ def select_profile(manifest, installed):
         require(profile.get("rpm_release") == RPM_18 and profile.get("original_module_sha256") == ORIGINAL_SHA_18,
                 "Invalid Remi 5.4.45-18 profile")
         return profile["libraries"], (ORIGINAL_SHA_18, CANDIDATE_SHA)
+    if all(installed.get(name) == name + "-" + RPM_17 for name in names):
+        profile = manifest.get("profiles", {}).get("remi-5.4.45-17-el7", {})
+        require(profile.get("rpm_release") == RPM_17 and profile.get("original_module_sha256") == ORIGINAL_SHA_17,
+                "Invalid Remi 5.4.45-17 profile")
+        return profile["libraries"], (ORIGINAL_SHA_17, CANDIDATE_SHA)
     raise RuntimeError("Unsupported PHP RPM set: " + ", ".join(installed.get(name, "missing") for name in names))
 
 
 def expected_ini_additions(original_sha):
     """未修正モジュールから切り替える場合だけ、追加したINI項目を許可する。"""
-    return set(["max_multipart_body_parts"]) if original_sha in (ORIGINAL_SHA, ORIGINAL_SHA_18) else set()
+    return set(["max_multipart_body_parts"]) if original_sha in (ORIGINAL_SHA, ORIGINAL_SHA_18, ORIGINAL_SHA_17) else set()
 
 
 def digest(path):

@@ -4,7 +4,7 @@
 
 ## Remiソースからのビルド
 
-対象はRemi `php-5.4.45-19.remi.src.rpm`です。`gcc`、`make`、`patch`、`bzip2`、`httpd-devel`、`apxs`、`ionice`など、PHPのビルド依存関係を満たす隔離環境を用意してください。
+対象はRemi `php-5.4.45-19.remi.src.rpm`です。`v0.1.3`で追加した`5.4.45-18.el7.remi`構成でも、同じ修正版モジュールを使用します。`gcc`、`make`、`patch`、`bzip2`、`httpd-devel`、`apxs`、`ionice`など、PHPのビルド依存関係を満たす隔離環境を用意してください。
 
 ```sh
 curl --fail --location --max-time 120 \
@@ -39,10 +39,10 @@ HTTP試験はrootで専用Apacheを起動し、子プロセスを`apache`ユー�
 
 ```sh
 python3 scripts/package-release.py \
-  --version v0.1.2 \
+  --version v0.1.3 \
   --module /絶対パス/libphp5.so \
   --php-source /絶対パス/php-5.4.45 \
-  --output /新しい絶対パス/release-v0.1.2
+  --output /新しい絶対パス/release-v0.1.3
 ```
 
 出力先に既存のディレクトリを指定すると停止します。出力は導入用シェル、シェル用チェックサム、payloadアーカイブ、`SHA256SUMS`です。同じ入力から同じ内容を生成するため、アーカイブの並び順・時刻・所有者情報を固定しています。

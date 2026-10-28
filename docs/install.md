@@ -4,29 +4,29 @@
 
 ## 対応環境
 
-`v0.1.2`の対応範囲は、次の構成に限定しています。
+`v0.1.3`の対応範囲は、次の構成に限定しています。
 
 |項目|条件|
 |---|---|
 |OS・CPU|CentOS Linux 7、x86_64|
-|PHP RPM|`php`・`php-common`・`php-cli`が`5.4.45-19.el7.remi.x86_64`|
+|PHP RPM|`php`・`php-common`・`php-cli`が全て`5.4.45-18.el7.remi.x86_64`または全て`5.4.45-19.el7.remi.x86_64`|
 |Web実行方式|Apache 2.4.6、prefork、NTS mod_php|
 |モジュール設定|`/etc/httpd/conf.modules.d/10-php.conf`にNTSの`LoadModule`が1件|
-|元モジュール|既知のRPMモジュールのSHA-256と一致|
-|主要ライブラリ|glibc・OpenSSL・libxml2・PCREが同梱manifestのハッシュと一致|
+|元モジュール|選択したRPM構成に対応する既知のSHA-256と一致|
+|主要ライブラリ|glibc・OpenSSL・libxml2・PCREが選択した構成のハッシュと一致|
 |SELinux|DisabledまたはPermissive|
 |実行権限|rootまたはsudo|
 |必要なコマンド|bash、Python 2.7または3.6以上、uname、base64、sha256sum、awk、mktemp、nice、httpd、rpm、systemctl、ldd、getenforce|
 |空き容量|`/opt`・`/var`・`/usr/local`に各100MiB以上|
 
-EL8/EL9、AlmaLinux、Rocky Linux、Ubuntu、PHP-FPM、CGI、ZTS、Apache worker/event、別リリースのPHP RPMは自動適用の対象外です。同じ版番号でもベンダーやビルド条件が異なる場合は停止します。対象外へ強制適用するオプションはありません。
+EL8/EL9、AlmaLinux、Rocky Linux、Ubuntu、PHP-FPM、CGI、ZTS、Apache worker/event、別リリースのPHP RPMは自動適用の対象外です。`-18`は実測した元モジュールと4つの主要ライブラリの組合せだけに対応します。同じ版番号でもビルドや依存ライブラリが異なる場合は停止します。対象外へ強制適用するオプションはありません。
 
 ## ダウンロード
 
-[リリース一覧](https://github.com/yoshinsk/php2shellblock/releases)から取得できます。初版の固定URLを使う場合は、対象サーバーで次を実行してください。
+[リリース一覧](https://github.com/yoshinsk/php2shellblock/releases)から取得できます。最新版の固定URLを使う場合は、対象サーバーで次を実行してください。
 
 ```sh
-release_url='https://github.com/yoshinsk/php2shellblock/releases/download/v0.1.2'
+release_url='https://github.com/yoshinsk/php2shellblock/releases/download/v0.1.3'
 curl --fail --location --output php2shellblock-install.sh "$release_url/php2shellblock-install.sh"
 curl --fail --location --output php2shellblock-install.sh.sha256 "$release_url/php2shellblock-install.sh.sha256"
 sha256sum --check php2shellblock-install.sh.sha256
@@ -80,7 +80,9 @@ sudo bash php2shellblock-install.sh --apply \
 
 ### 旧版からの更新
 
-`v0.1.1`のモジュールが稼働中でも、`v0.1.2`の`--check`と`--apply`を実行できます。新しい退避には更新前の設定と`v0.1.1`のモジュールが保存されます。更新後に`--rollback latest`を実行すると、更新前の`v0.1.1`へ戻ります。旧版で作成した退避も削除しません。
+`-19`環境で`v0.1.1`のモジュールが稼働中でも、`v0.1.3`の`--check`と`--apply`を実行できます。新しい退避には更新前の設定と`v0.1.1`のモジュールが保存されます。更新後に`--rollback latest`を実行すると、更新前の`v0.1.1`へ戻ります。旧版で作成した退避も削除しません。`v0.1.2`が稼働中ならモジュール本体は同一のため、再適用しません。
+
+`-18`構成では、`v0.1.3`が既存の`-19`向け修正版モジュールを使用します。隔離ApacheでPHP拡張・内部関数・INI値、POST・セッション・アップロード・OOM後の復旧を比較した構成だけを許可します。`-18`の元モジュールを用いた両CVEの修正前後比較は実施していません。
 
 ### 変更するもの
 

@@ -33,12 +33,33 @@ except ImportError:
 CANDIDATE_SHA = "f83e471ca70d691b06f2f8957204d6a8e37821a7bb31b9e864e06d8497abae23"
 PREVIOUS_SHA = "2b343438ad940ce1d5429f27e7b51ad2f16078687a3c3caa62b67502f4a2c315"
 ORIGINAL_SHA = "eeefbd609a2db685b419fb222c4863c598398b57ec08d7246ac5d49f2ed07641"
+ORIGINAL_SHA_18 = "35202da3529ffda4e585a1c443bdce86e372d4aced99053f023b31f219e4b8ae"
+RPM_19 = "5.4.45-19.el7.remi.x86_64"
+RPM_18 = "5.4.45-18.el7.remi.x86_64"
 
 
 def require(condition, message):
     """python -Oでも検査が省略されないよう、assertを使用しない。"""
     if not condition:
         raise RuntimeError(message)
+
+
+def select_profile(manifest, installed):
+    """RPM三種を同一版で照合し、実測済み元モジュールと依存ライブラリだけを許可する。"""
+    names = ("php", "php-common", "php-cli")
+    if all(installed.get(name) == name + "-" + RPM_19 for name in names):
+        return manifest["libraries"], (ORIGINAL_SHA, PREVIOUS_SHA, CANDIDATE_SHA)
+    if all(installed.get(name) == name + "-" + RPM_18 for name in names):
+        profile = manifest.get("profiles", {}).get("remi-5.4.45-18-el7", {})
+        require(profile.get("rpm_release") == RPM_18 and profile.get("original_module_sha256") == ORIGINAL_SHA_18,
+                "Invalid Remi 5.4.45-18 profile")
+        return profile["libraries"], (ORIGINAL_SHA_18, CANDIDATE_SHA)
+    raise RuntimeError("Unsupported PHP RPM set: " + ", ".join(installed.get(name, "missing") for name in names))
+
+
+def expected_ini_additions(original_sha):
+    """未修正モジュールから切り替える場合だけ、追加したINI項目を許可する。"""
+    return set(["max_multipart_body_parts"]) if original_sha in (ORIGINAL_SHA, ORIGINAL_SHA_18) else set()
 
 
 def digest(path):
@@ -274,7 +295,7 @@ php_admin_value session.save_path "ROOT/sessions"
             require(before["functions"] == after["functions"], "Internal PHP function list changed")
             require(all(after["ini"].get(key) == value for key, value in before["ini"].items()), "Existing PHP INI values changed")
             # v0.1.1 からの更新では、このINI項目はすでに存在する。
-            expected_ini = set(["max_multipart_body_parts"]) if digest(self.original) == ORIGINAL_SHA else set()
+            expected_ini = expected_ini_additions(digest(self.original))
             require(set(after["ini"]) - set(before["ini"]) == expected_ini, "Unexpected new INI entries")
             self.select(self.original)
             os.kill(self.process.pid, signal.SIGUSR1)
@@ -312,11 +333,11 @@ class Installer(object):
             space = os.statvfs(path)
             require(space.f_bavail * space.f_frsize >= 100 * 1024 * 1024, "At least 100 MiB free space is required: " + path)
         require(command(["getenforce"]) in ("Disabled", "Permissive"), "SELinux Enforcing is not supported by this release")
-        for name in ("php", "php-common", "php-cli"):
-            require(command(["rpm", "-q", name]) == name + "-5.4.45-19.el7.remi.x86_64", "Unsupported RPM: " + name)
+        names = ("php", "php-common", "php-cli")
+        libraries, allowed_modules = select_profile(manifest, {name: command(["rpm", "-q", name]) for name in names})
         require("mpm_prefork_module" in command(["httpd", "-M"]), "Apache prefork/mod_php is required")
         require("Apache/2.4.6" in command(["httpd", "-v"]), "Unsupported Apache version")
-        for path, expected in manifest["libraries"].items():
+        for path, expected in libraries.items():
             require(digest(path) == expected, "Untested dependency library: " + path)
         for path, expected in manifest["files"].items():
             require(not path.startswith("/") and ".." not in path.split("/"), "Invalid manifest member")
@@ -331,7 +352,7 @@ class Installer(object):
         require(services["httpd"] > 0, "Apache must already be running")
         require(mapped(services["httpd"]) == [original], "Configured and active PHP modules differ")
         current = digest(original)
-        require(current in (ORIGINAL_SHA, PREVIOUS_SHA, CANDIDATE_SHA), "Unsupported current PHP module; nothing changed")
+        require(current in allowed_modules, "Unsupported current PHP module; nothing changed")
         wait_maps(services["httpd"], original, 15)
         self.system.syntax()
         return manifest, candidate, config, directive, original, services, current

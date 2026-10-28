@@ -19,6 +19,16 @@ LIBRARIES = {
     "/lib64/libxml2.so.2": "3998bec4f844bab78f102637a3fcfc123662ff5bf307f628c8cbfa37a749b953",
     "/lib64/libpcre.so.1": "9513aab50d64bb4655550e1ba0c62fbcf6e7cbe0d64cba0814224d2631a85027",
 }
+REMI_18_PROFILE = {
+    "rpm_release": "5.4.45-18.el7.remi.x86_64",
+    "original_module_sha256": "35202da3529ffda4e585a1c443bdce86e372d4aced99053f023b31f219e4b8ae",
+    "libraries": {
+        "/lib64/libc.so.6": "fe9ca97275c3e5009374e2eb36184fab05a63848a6c377fce8b518f381760fc8",
+        "/lib64/libssl.so.10": "84c8c57bba0cfb2c0237879d5dd0c803932ead2916d5d6b1647588ca73610e40",
+        "/lib64/libxml2.so.2": "a7aef045babce59124326cc90e41f167644ce309fc7620820a27d77aff4d2e1e",
+        "/lib64/libpcre.so.1": "9513aab50d64bb4655550e1ba0c62fbcf6e7cbe0d64cba0814224d2631a85027",
+    },
+}
 
 
 def sha(data):
@@ -81,7 +91,8 @@ def main():
         payload["php54-modified-sources/" + name] = content
     payload["php54-source-manifest.json"] = (json.dumps(source_manifest, indent=2, sort_keys=True) + "\n").encode()
     manifest = {"version": args.version, "revision": revision, "module_sha256": MODULE_SHA,
-                "libraries": LIBRARIES, "security_validation": "documented_oom_stale_session_crash_path",
+                "libraries": LIBRARIES, "profiles": {"remi-5.4.45-18-el7": REMI_18_PROFILE},
+                "security_validation": "documented_oom_stale_session_crash_path",
                 "rce_validation": "not_performed",
                 "files": {path: sha(content) for path, content in payload.items()}}
     payload["manifest.json"] = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode()
